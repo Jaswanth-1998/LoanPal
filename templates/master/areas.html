@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+
+{% block title %}Areas - Daily Loan Collection System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">
+        <i class="bi bi-geo"></i> Area Management
+    </h1>
+    <a href="{{ url_for('add_area') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Add New Area
+    </a>
+</div>
+
+{% if areas %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Area Name</th>
+                        <th>Description</th>
+                        <th>Lines</th>
+                        <th>Created Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for area in areas %}
+                    <tr>
+                        <td>#{{ area.id }}</td>
+                        <td><strong>{{ area.name }}</strong></td>
+                        <td>{{ area.description or '-' }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ area.lines|length }} Lines</span>
+                        </td>
+                        <td>{{ area.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('add_line') }}?area_id={{ area.id }}" class="btn btn-sm btn-success">
+                                <i class="bi bi-plus"></i> Add Line
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-geo fs-1 text-muted mb-3"></i>
+        <h4>No Areas Found</h4>
+        <p class="text-muted">Create your first area to organize your loan collection system.</p>
+        <a href="{{ url_for('add_area') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Your First Area
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+
+{% block title %}Expenditures - Daily Loan Collection System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">
+        <i class="bi bi-receipt"></i> Expenditure Management
+    </h1>
+    <a href="{{ url_for('add_expenditure') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Add Expenditure
+    </a>
+</div>
+
+{% if expenditures %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Expenditure Date</th>
+                        <th>Created Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenditures %}
+                    <tr>
+                        <td>#{{ expense.id }}</td>
+                        <td>{{ expense.description }}</td>
+                        <td>
+                            <strong class="text-danger">₹{{ "{:,.2f}".format(expense.amount) }}</strong>
+                        </td>
+                        <td>
+                            {% if expense.category %}
+                                <span class="badge bg-secondary">{{ expense.category }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ expense.expenditure_date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ expense.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Total Expenditures: ₹{{ "{:,.2f}".format(expenditures|sum(attribute='amount')) }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-receipt fs-1 text-muted mb-3"></i>
+        <h4>No Expenditures Found</h4>
+        <p class="text-muted">Track your business expenses by adding expenditures.</p>
+        <a href="{{ url_for('add_expenditure') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Your First Expenditure
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
