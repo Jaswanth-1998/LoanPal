@@ -433,10 +433,7 @@ def get_interest_rate(period):
     except ValueError:
         return jsonify({'rate': 10.0})
 
-from flask_wtf.csrf import exempt
-
 @app.route('/api/calculate-loan', methods=['POST'])
-@exempt  # Exempt from CSRF for AJAX calls
 @require_login
 def calculate_loan():
     """Calculate loan details via API"""
