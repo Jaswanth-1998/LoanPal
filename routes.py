@@ -35,9 +35,9 @@ def calculate_loan_details(loan_amount, period, duration_days, interest_rate):
     # Calculate total interest based on period
     if period == LoanPeriod.DAILY:
         # Daily interest calculation
-        total_interest = (loan_amount * interest_rate * duration_days) / Decimal('100')
+        total_interest = (loan_amount * interest_rate * Decimal(str(duration_days))) / Decimal('100')
         total_amount = loan_amount + total_interest
-        daily_amount = total_amount / duration_days
+        daily_amount = total_amount / Decimal(str(duration_days))
         return {
             'total_interest': total_interest,
             'total_amount': total_amount,
@@ -47,10 +47,10 @@ def calculate_loan_details(loan_amount, period, duration_days, interest_rate):
         }
     elif period == LoanPeriod.WEEKLY:
         # Weekly interest calculation
-        weeks = duration_days / 7
+        weeks = Decimal(str(duration_days)) / Decimal('7')
         total_interest = (loan_amount * interest_rate * weeks) / Decimal('100')
         total_amount = loan_amount + total_interest
-        weekly_amount = total_amount / Decimal(str(weeks))
+        weekly_amount = total_amount / weeks
         return {
             'total_interest': total_interest,
             'total_amount': total_amount,
@@ -60,10 +60,10 @@ def calculate_loan_details(loan_amount, period, duration_days, interest_rate):
         }
     elif period == LoanPeriod.MONTHLY:
         # Monthly interest calculation
-        months = duration_days / 30
+        months = Decimal(str(duration_days)) / Decimal('30')
         total_interest = (loan_amount * interest_rate * months) / Decimal('100')
         total_amount = loan_amount + total_interest
-        monthly_amount = total_amount / Decimal(str(months))
+        monthly_amount = total_amount / months
         return {
             'total_interest': total_interest,
             'total_amount': total_amount,
