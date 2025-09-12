@@ -27,6 +27,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 # File upload configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['ALLOWED_EXTENSIONS'] = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 # CSRF Protection
 from flask_wtf.csrf import CSRFProtect
