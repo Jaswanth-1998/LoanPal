@@ -1,86 +1,31 @@
 {% extends "layout.html" %}
 
-{% block title %}Add Expenditure - Daily Loan Collection System{% endblock %}
-
 {% block content %}
-<div class="row">
+<div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-receipt"></i> Add New Expenditure</h5>
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-receipt"></i> Add New Expenditure
+                </h4>
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="description" class="form-label">Description *</label>
-                            <input type="text" class="form-control" id="description" name="description" required placeholder="Brief description of the expenditure">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="amount" class="form-label">Amount *</label>
-                            <div class="input-group">
-                                <span class="input-group-text">₹</span>
-                                <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0.01" required>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="category" class="form-label">Category</label>
-                            <input type="text" class="form-control" id="category" name="category" placeholder="e.g., Travel, Office Supplies, etc.">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="expenditure_date" class="form-label">Expenditure Date *</label>
-                            <input type="date" class="form-control" id="expenditure_date" name="expenditure_date" required>
-                        </div>
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount (₹)</label>
+                        <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
                     </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Add Expenditure
-                        </button>
-                        <a href="{{ url_for('expenditures') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Expenditures
-                        </a>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.expenditures') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Expenditure</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Category Suggestions</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-1">
-                    <span class="badge bg-light text-dark border">Office Supplies</span>
-                    <span class="badge bg-light text-dark border">Travel</span>
-                    <span class="badge bg-light text-dark border">Fuel</span>
-                    <span class="badge bg-light text-dark border">Maintenance</span>
-                    <span class="badge bg-light text-dark border">Marketing</span>
-                    <span class="badge bg-light text-dark border">Communication</span>
-                    <span class="badge bg-light text-dark border">Utilities</span>
-                    <span class="badge bg-light text-dark border">Other</span>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-
-{% block scripts %}
-<script>
-// Set today's date as default
-document.getElementById('expenditure_date').value = new Date().toISOString().split('T')[0];
-
-// Category suggestion click handler
-document.querySelectorAll('.badge').forEach(badge => {
-    badge.addEventListener('click', function() {
-        document.getElementById('category').value = this.textContent;
-    });
-});
-</script>
-{% endblock %}
 {% endblock %}

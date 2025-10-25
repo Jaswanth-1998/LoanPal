@@ -1,73 +1,44 @@
 {% extends "layout.html" %}
 
-{% block title %}Loans - Daily Loan Collection System{% endblock %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3">
-        <i class="bi bi-cash-coin"></i> Loan Management
-    </h1>
-    <a href="{{ url_for('add_loan') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Add New Loan
+    <h2><i class="fas fa-file-invoice-dollar"></i> Loans</h2>
+    <a href="{{ url_for('main.add_loan') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Loan
     </a>
 </div>
 
-{% if loans %}
 <div class="card">
-    <div class="card-body p-0">
+    <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0">
+            <table class="table table-striped table-hover">
                 <thead class="table-dark">
                     <tr>
                         <th>ID</th>
                         <th>Customer</th>
-                        <th>Loan Amount</th>
-                        <th>Period</th>
-                        <th>Duration</th>
+                        <th>Principal Amount</th>
                         <th>Interest Rate</th>
                         <th>Total Amount</th>
                         <th>Start Date</th>
+                        <th>Due Date</th>
                         <th>Status</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for loan in loans %}
                     <tr>
-                        <td>#{{ loan.id }}</td>
-                        <td>
-                            <strong>{{ loan.customer.name }}</strong>
-                            <br>
-                            <small class="text-muted">{{ loan.customer.line.name }} - {{ loan.customer.line.area.name }}</small>
-                        </td>
-                        <td>₹{{ "{:,.2f}".format(loan.loan_amount) }}</td>
-                        <td>
-                            <span class="badge bg-{{ 'success' if loan.period.value == 'daily' else ('warning' if loan.period.value == 'weekly' else 'info') }}">
-                                {{ loan.period.value.title() }}
-                            </span>
-                        </td>
-                        <td>{{ loan.duration_days }} days</td>
+                        <td>{{ loan.id }}</td>
+                        <td>{{ loan.customer.name }}</td>
+                        <td>₹{{ "%.2f"|format(loan.principal_amount) }}</td>
                         <td>{{ loan.interest_rate }}%</td>
-                        <td>
-                            <strong>₹{{ "{:,.2f}".format(loan.total_amount) }}</strong>
-                            <br>
-                            <small class="text-muted">Interest: ₹{{ "{:,.2f}".format(loan.total_interest) }}</small>
-                        </td>
+                        <td>₹{{ "%.2f"|format(loan.total_amount) }}</td>
                         <td>{{ loan.start_date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ loan.due_date.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            {% if loan.is_paid %}
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Paid</span>
-                            {% elif loan.is_active %}
-                                <span class="badge bg-primary"><i class="bi bi-clock"></i> Active</span>
+                            {% if loan.is_active %}
+                                <span class="badge bg-success">Active</span>
                             {% else %}
-                                <span class="badge bg-secondary"><i class="bi bi-pause"></i> Inactive</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if not loan.is_paid %}
-                            <a href="{{ url_for('add_payment', loan_id=loan.id) }}" class="btn btn-sm btn-success">
-                                <i class="bi bi-credit-card"></i> Payment
-                            </a>
+                                <span class="badge bg-secondary">Closed</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -77,16 +48,4 @@
         </div>
     </div>
 </div>
-{% else %}
-<div class="card">
-    <div class="card-body text-center py-5">
-        <i class="bi bi-cash-coin fs-1 text-muted mb-3"></i>
-        <h4>No Loans Found</h4>
-        <p class="text-muted">Start by adding your first loan to the system.</p>
-        <a href="{{ url_for('add_loan') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add Your First Loan
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

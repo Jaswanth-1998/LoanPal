@@ -1,0 +1,39 @@
+daily-loan-collection-system/
+├── app.py                    # Main Flask application factory
+├── main.py                   # Application entry point
+├── models.py                 # Database models and relationships
+├── routes.py                 # All application routes and logic
+├── config.py                 # Configuration settings
+├── auth.py                   # Authentication system
+├── requirements.txt          # Python dependencies
+├── pyproject.toml           # Project configuration
+├── README.md                # This file
+├── .env                     # Environment variables (create this)
+├── templates/               # HTML templates
+│   ├── customers/           # Customer management pages
+│   │   ├── list.html        # Customer listing
+│   │   └── add.html         # Add customer form
+│   ├── loans/               # Loan management pages
+│   │   ├── list.html        # Loan listing
+│   │   └── add.html         # Add loan form
+│   ├── payments/            # Payment tracking pages
+│   │   ├── list.html        # Payment listing
+│   │   └── add.html         # Add payment form
+│   ├── expenditures/        # Expense management pages
+│   │   ├── list.html        # Expenditure listing
+│   │   └── add.html         # Add expenditure form
+│   ├── master/              # Master data forms
+│   │   ├── list.html        # Master data listing
+│   │   └── add.html         # Add master data form
+│   ├── layout.html          # Base template
+│   ├── dashboard.html       # Dashboard page
+│   ├── index.html           # Home page
+│   ├── login.html           # Login page
+│   └── register.html        # Registration page
+├── static/                  # Web assets
+│   ├── css/                 # Stylesheets
+│   ├── js/                  # JavaScript files
+│   ├── icons/               # PWA app icons
+│   ├── manifest.json        # Mobile app manifest
+│   └── sw.js                # Service worker
+└── uploads/                 # File upload directory

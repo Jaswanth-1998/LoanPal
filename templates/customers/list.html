@@ -1,57 +1,38 @@
 {% extends "layout.html" %}
 
-{% block title %}Customers - Daily Loan Collection System{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3">
-        <i class="bi bi-people"></i> Customer Management
-    </h1>
-    <a href="{{ url_for('add_customer') }}" class="btn btn-primary">
-        <i class="bi bi-person-plus"></i> Add New Customer
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-users"></i> Customers</h2>
+    <a href="{{ url_for('main.add_customer') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Customer
+    </a>
     </a>
 </div>
-
-{% if customers %}
 <div class="card">
-    <div class="card-body p-0">
+    <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0">
+            <table class="table table-striped table-hover">
                 <thead class="table-dark">
                     <tr>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Phone</th>
-                        <th>Line & Area</th>
                         <th>Address</th>
-                        <th>Document</th>
-                        <th>Actions</th>
+                        <th>Area</th>
+                        <th>Line</th>
+                        <th>Created Date</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for customer in customers %}
                     <tr>
-                        <td>#{{ customer.id }}</td>
-                        <td><strong>{{ customer.name }}</strong></td>
-                        <td>{{ customer.phone or '-' }}</td>
-                        <td>
-                            <span class="badge bg-info">{{ customer.line.name }}</span>
-                            <br>
-                            <small class="text-muted">{{ customer.line.area.name }}</small>
-                        </td>
-                        <td>{{ customer.address[:50] + '...' if customer.address and customer.address|length > 50 else (customer.address or '-') }}</td>
-                        <td>
-                            {% if customer.document_path %}
-                                <i class="bi bi-file-earmark text-success"></i> Available
-                            {% else %}
-                                <i class="bi bi-file-earmark-x text-muted"></i> None
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('add_loan') }}?customer_id={{ customer.id }}" class="btn btn-sm btn-success">
-                                <i class="bi bi-cash-coin"></i> New Loan
-                            </a>
-                        </td>
+                        <td>{{ customer.id }}</td>
+                        <td>{{ customer.name }}</td>
+                        <td>{{ customer.phone }}</td>
+                        <td>{{ customer.address }}</td>
+                        <td>{{ customer.area }}</td>
+                        <td>{{customer.line}}</td>
+                        <td>{{ customer.created_at.strftime('%Y-%m-%d') }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -59,16 +40,5 @@
         </div>
     </div>
 </div>
-{% else %}
-<div class="card">
-    <div class="card-body text-center py-5">
-        <i class="bi bi-people fs-1 text-muted mb-3"></i>
-        <h4>No Customers Found</h4>
-        <p class="text-muted">Start by adding your first customer to the system.</p>
-        <a href="{{ url_for('add_customer') }}" class="btn btn-primary">
-            <i class="bi bi-person-plus"></i> Add Your First Customer
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
+

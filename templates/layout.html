@@ -2,188 +2,90 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#007bff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Loan Manager">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Loan Manager">
-    
-    <!-- PWA Icons -->
-    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='icons/icon-72x72.png') }}">
-    <link rel="apple-touch-icon" sizes="96x96" href="{{ url_for('static', filename='icons/icon-96x96.png') }}">
-    <link rel="apple-touch-icon" sizes="128x128" href="{{ url_for('static', filename='icons/icon-128x128.png') }}">
-    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='icons/icon-144x144.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
-    <link rel="apple-touch-icon" sizes="384x384" href="{{ url_for('static', filename='icons/icon-384x384.png') }}">
-    <link rel="apple-touch-icon" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512x512.png') }}">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    
-    <title>{% block title %}Daily Loan Collection System{% endblock %}</title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/layout.css') }}" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoanPal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    {% if current_user.is_authenticated %}
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="bi bi-currency-dollar"></i> Loan Management
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+                <i class="fas fa-hand-holding-usd"></i> LoanPal
             </a>
-            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">
-                            <i class="bi bi-house"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-gear"></i> Master
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('areas') }}">Areas</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('lines') }}">Lines</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('interest_rates') }}">Interest Rates</a></li>
-                        </ul>
+                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('customers') }}">
-                            <i class="bi bi-people"></i> Customers
-                        </a>
+                        <a class="nav-link" href="{{ url_for('main.customers') }}">Customers</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('loans') }}">
-                            <i class="bi bi-cash-coin"></i> Loans
-                        </a>
+                        <a class="nav-link" href="{{ url_for('main.loans') }}">Loans</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('payments') }}">
-                            <i class="bi bi-credit-card"></i> Payments
-                        </a>
+                        <a class="nav-link" href="{{ url_for('main.payments') }}">Payments</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('expenditures') }}">
-                            <i class="bi bi-receipt"></i> Expenditures
-                        </a>
+                        <a class="nav-link" href="{{ url_for('main.expenditures') }}">Expenditures</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.master') }}">Master Data</a>
                     </li>
                 </ul>
-                
                 <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            {% if current_user.profile_image_url %}
-                                <img src="{{ current_user.profile_image_url }}" alt="Profile" width="24" height="24" class="rounded-circle me-1" style="object-fit: cover;">
-                            {% endif %}
-                            {{ current_user.first_name or current_user.email or 'User' }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ url_for('replit_auth.logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Logout
-                            </a></li>
+                    {% if current_user.is_authenticated %}
+                       <li class="nav-item dropdown">
+                             <a class="nav-link dropdown-toggle text-light" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user"></i> {{ current_user.username }}
+                             </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="fas fa-id-card me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fa fa-sign-out"></i> Logout</a></li>
                         </ul>
-                    </li>
+                       </li>      
+                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
-    {% endif %}
 
-    <!-- Flash Messages -->
-    <div class="container mt-3">
+    <div class="container mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-    </div>
 
-    <!-- Main Content -->
-    <div class="container mt-4">
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Bootstrap 5 JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    
-    <!-- PWA Service Worker Registration -->
     <script>
-        // Register Service Worker for PWA functionality
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js')
-                .then((registration) => {
-                    console.log('Service Worker registered successfully');
-                    
-                    // Show install prompt for PWA
-                    let deferredPrompt;
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        e.preventDefault();
-                        deferredPrompt = e;
-                        
-                        // Create install button or banner
-                        const installBanner = document.createElement('div');
-                        installBanner.innerHTML = `
-                            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                                <i class="bi bi-phone"></i> Install this app on your device for a better mobile experience!
-                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="installPWA()">Install</button>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        `;
-                        document.querySelector('.container').prepend(installBanner);
-                        
-                        window.installPWA = () => {
-                            deferredPrompt.prompt();
-                            deferredPrompt.userChoice.then((choiceResult) => {
-                                deferredPrompt = null;
-                            });
-                        };
-                    });
-                })
-                .catch((error) => {
-                    console.log('Service Worker registration failed');
-                });
-            });
-        }
-        
-        // Handle online/offline status
-        window.addEventListener('online', () => {
-            document.body.classList.remove('offline');
-            const offlineMsg = document.querySelector('.offline-message');
-            if (offlineMsg) offlineMsg.remove();
+    // Wait for the page to load
+    document.addEventListener("DOMContentLoaded", function() {
+        // Select all alert elements
+        var alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            // Automatically remove after 3 seconds (3000ms)
+            setTimeout(function() {
+                // Bootstrap 5 fade out
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 1000);
         });
-        
-        window.addEventListener('offline', () => {
-            document.body.classList.add('offline');
-            const offlineMsg = document.createElement('div');
-            offlineMsg.className = 'offline-message alert alert-warning position-fixed top-0 start-50 translate-middle-x mt-2';
-            offlineMsg.style.zIndex = '9999';
-            offlineMsg.innerHTML = '<i class="bi bi-wifi-off"></i> You are currently offline. Some features may be limited.';
-            document.body.appendChild(offlineMsg);
-        });
+    });
     </script>
-    
-    {% block scripts %}{% endblock %}
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

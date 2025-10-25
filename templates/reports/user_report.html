@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+ <!-- header: title left, back right -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">User-wise Report</h3>
+
+    <a href="{{ request.referrer or url_for('main.dashboard') }}"
+       class="btn btn-outline-secondary btn-sm"
+       title="Go back">
+      <i class="fas fa-arrow-left me-1"></i> Back
+    </a>
+  </div>
+  <table class="table table-sm table-bordered table-striped mt-3">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Customers</th>
+        <th>Loans</th>
+        <th>Total Principal</th>
+        <th>Total Paid</th>
+      </tr>
+    </thead>
+      <tbody>
+  {% for s in summaries %}
+  <tr>
+    <td>{{ s.username }}</td>
+    <td>{{ s.customer_name }}</td>
+    <td>{{ s.loan_count }}</td>
+    <td>{{ "%.2f"|format(s.total_principal|default(0)) }}</td>
+    <td>{{ "%.2f"|format(s.total_paid|default(0)) }}</td>
+  </tr>
+  {% endfor %}
+</tbody>
+  </table>
+</div>
+{% endblock %}

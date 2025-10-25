@@ -1,73 +1,53 @@
 {% extends "layout.html" %}
 
-{% block title %}Add Customer - Daily Loan Collection System{% endblock %}
-
 {% block content %}
-<div class="row">
+<div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-person-plus"></i> Add New Customer</h5>
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-user-plus"></i> Add New Customer
+                </h4>
             </div>
             <div class="card-body">
-                <form method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <form method="POST">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="name" class="form-label">Customer Name *</label>
+                            <label for="name" class="form-label">Customer Name</label>
                             <input type="text" class="form-control" id="name" name="name" required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="phone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="phone" name="phone">
+                            <input type="tel" class="form-control" id="phone" name="phone" required>
                         </div>
                     </div>
-                    
                     <div class="mb-3">
-                        <label for="line_id" class="form-label">Line *</label>
-                        <select class="form-select" id="line_id" name="line_id" required>
-                            <option value="">Select Line</option>
-                            {% for line in lines %}
-                            <option value="{{ line.id }}">{{ line.name }} ({{ line.area.name }})</option>
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="area" class="form-label">Area</label>
+                        <select class="form-select" id="area" name="area" required>
+                            <option value="">Select Area</option>
+                            {% for area in areas %}
+                            <option value="{{ area.value }}">{{ area.value }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    
                     <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="3"></textarea>
+                        <label for="line" class="form-label">Line</label>
+                        <select class="form-select" id="line" name="line" required>
+                            <option value="">Select Line</option>
+                            {% for line in lines %}
+                            <option value="{{ line.value }}">{{ line.value }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="document" class="form-label">Document/Photo</label>
-                        <input type="file" class="form-control" id="document" name="document" accept="image/*,.pdf">
-                        <div class="form-text">Upload customer photo or document (Max 16MB)</div>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Add Customer
-                        </button>
-                        <a href="{{ url_for('customers') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Customers
-                        </a>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.customers') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Customer</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Quick Tips</h6>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li><i class="bi bi-check text-success"></i> Customer name is required</li>
-                    <li><i class="bi bi-check text-success"></i> Select the appropriate line and area</li>
-                    <li><i class="bi bi-check text-success"></i> Phone number helps with contact</li>
-                    <li><i class="bi bi-check text-success"></i> Document upload is optional</li>
-                </ul>
             </div>
         </div>
     </div>

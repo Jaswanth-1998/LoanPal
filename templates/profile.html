@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-id-badge me-2"></i>My Profile</h5>
+        <a href="{{ url_for('main.edit_profile') }}" class="btn btn-sm btn-primary">
+          <i class="fas fa-edit me-1"></i> Edit Profile
+        </a>
+      </div>
+
+      <div class="card-body">
+        <p class="text-muted">Below are your account details. For security, passwords are not shown — use <strong>Change password</strong> to change your password.</p>
+
+        <div class="table-responsive">
+          <table class="table table-borderless mb-0">
+            <tbody>
+              <tr>
+                <th style="width: 30%;">User ID</th>
+                <td>{{ user.id }}</td>
+              </tr>
+              <tr>
+                <th>Username</th>
+                <td>{{ user.username }}</td>
+              </tr>
+              <tr>
+                <th>Email</th>
+                <td>{{ user.email }}</td>
+              </tr>
+              <tr>
+                <th>Password</th>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <span id="passwordDisplay" class="me-2">••••••••</span>
+
+                    <!-- Eye toggle button (shows explanatory message, not real password) -->
+                    <button class="btn btn-outline-secondary btn-sm me-2" type="button" id="togglePassword" aria-label="Toggle password visibility">
+                      <i class="fas fa-eye" id="toggleIcon"></i>
+                    </button>
+
+                    <!-- Change password opens modal -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#changePwdModal">
+                      Change password
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th>Account created</th>
+                <td>
+                  {% if user.created_at %}
+                    {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4">
+          <a href="{{ url_for('main.dashboard') }}" class="btn btn-light"><i class="fas fa-arrow-left me-1"></i> Back to Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePwdModal" tabindex="-1" aria-labelledby="changePwdModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('main.change_password') }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="changePwdModalLabel">Change Password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="current_password" class="form-label">Current password</label>
+            <input type="password" class="form-control" id="current_password" name="current_password" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="new_password" class="form-label">New password</label>
+            <input type="password" class="form-control" id="new_password" name="new_password" required minlength="8">
+            <div class="form-text">Use at least 8 characters.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="confirm_password" class="form-label">Confirm new password</label>
+            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const toggleBtn = document.getElementById('togglePassword');
+    const display = document.getElementById('passwordDisplay');
+    const icon = document.getElementById('toggleIcon');
+    let shown = false;
+    toggleBtn.addEventListener('click', function() {
+      if (!shown) {
+        display.textContent = 'Password is hidden for security';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        shown = true;
+      } else {
+        display.textContent = '••••••••';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        shown = false;
+      }
+    });
+  })();
+</script>
+{% endblock %}

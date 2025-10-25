@@ -1,98 +1,53 @@
 {% extends "layout.html" %}
 
-{% block title %}Add Loan - Daily Loan Collection System{% endblock %}
-
 {% block content %}
-<div class="row">
+<div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add New Loan</h5>
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-plus"></i> Add New Loan
+                </h4>
             </div>
             <div class="card-body">
-                <form method="POST" id="loanForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <form method="POST">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="customer_id" class="form-label">Customer *</label>
+                            <label for="customer_id" class="form-label">Customer</label>
                             <select class="form-select" id="customer_id" name="customer_id" required>
                                 <option value="">Select Customer</option>
                                 {% for customer in customers %}
-                                <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.line.name }})</option>
+                                <option value="{{ customer.id }}">{{ customer.name }} - {{ customer.phone }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="loan_amount" class="form-label">Loan Amount *</label>
-                            <div class="input-group">
-                                <span class="input-group-text">₹</span>
-                                <input type="number" class="form-control" id="loan_amount" name="loan_amount" step="0.01" min="100" required>
-                            </div>
+                            <label for="principal_amount" class="form-label">Principal Amount (₹)</label>
+                            <input type="number" step="0.01" class="form-control" id="principal_amount" name="principal_amount" required>
                         </div>
                     </div>
-                    
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="period" class="form-label">Period *</label>
-                            <select class="form-select" id="period" name="period" required>
-                                <option value="">Select Period</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
+                        <div class="col-md-6 mb-3">
+                            <label for="interest_rate" class="form-label">Interest Rate (%)</label>
+                            <select class="form-select" id="interest_rate" name="interest_rate" required>
+                                <option value="">Select Interest Rate</option>
+                                {% for rate in interest_rates %}
+                                <option value="{{ rate.value }}">{{ rate.value }}%</option>
+                                {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="duration_days" class="form-label">Duration (Days) *</label>
-                            <input type="number" class="form-control" id="duration_days" name="duration_days" min="1" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="interest_rate" class="form-label">Interest Rate (%) *</label>
-                            <input type="number" class="form-control" id="interest_rate" name="interest_rate" step="0.01" min="0" required>
+                        <div class="col-md-6 mb-3">
+                            <label for="due_date" class="form-label">Due Date</label>
+                            <input type="date" class="form-control" id="due_date" name="due_date" required>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="start_date" class="form-label">Start Date *</label>
-                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ today }}" required>
-                    </div>
-                    
-                    <div id="calculationDisplay"></div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Create Loan
-                        </button>
-                        <a href="{{ url_for('loans') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Loans
-                        </a>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.loans') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Loan</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Interest Rates</h6>
-            </div>
-            <div class="card-body">
-                {% for rate in interest_rates %}
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="badge bg-{{ 'success' if rate.period.value == 'daily' else ('warning' if rate.period.value == 'weekly' else 'info') }}">
-                        {{ rate.period.value.title() }}
-                    </span>
-                    <strong>{{ rate.rate_per_hundred }}%</strong>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-// Set today's date as default
-document.getElementById('start_date').value = new Date().toISOString().split('T')[0];
-</script>
 {% endblock %}

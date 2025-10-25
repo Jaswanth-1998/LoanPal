@@ -1,80 +1,40 @@
 {% extends "layout.html" %}
 
-{% block title %}Add Payment - Daily Loan Collection System{% endblock %}
-
 {% block content %}
-<div class="row">
+<div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-credit-card"></i> Record Payment</h5>
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-money-bill"></i> Add New Payment
+                </h4>
             </div>
             <div class="card-body">
-                <!-- Loan Details -->
-                <div class="alert alert-info mb-4">
-                    <h6><i class="bi bi-info-circle"></i> Loan Details</h6>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>Customer:</strong> {{ loan.customer.name }}</p>
-                            <p class="mb-1"><strong>Loan Amount:</strong> ₹{{ "{:,.2f}".format(loan.loan_amount) }}</p>
-                            <p class="mb-1"><strong>Total Amount:</strong> ₹{{ "{:,.2f}".format(loan.total_amount) }}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>Period:</strong> {{ loan.period.value.title() }}</p>
-                            <p class="mb-1"><strong>Interest Rate:</strong> {{ loan.interest_rate }}%</p>
-                            <p class="mb-1"><strong>Start Date:</strong> {{ loan.start_date.strftime('%Y-%m-%d') }}</p>
-                        </div>
-                    </div>
-                </div>
-                
                 <form method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="amount_paid" class="form-label">Amount Paid *</label>
-                            <div class="input-group">
-                                <span class="input-group-text">₹</span>
-                                <input type="number" class="form-control" id="amount_paid" name="amount_paid" step="0.01" min="0.01" required>
-                            </div>
-                            <div class="form-text">
-                                {% if loan.period.value == 'daily' and loan.daily_amount %}
-                                    Daily amount: ₹{{ "{:,.2f}".format(loan.daily_amount) }}
-                                {% elif loan.period.value == 'weekly' and loan.weekly_amount %}
-                                    Weekly amount: ₹{{ "{:,.2f}".format(loan.weekly_amount) }}
-                                {% elif loan.period.value == 'monthly' and loan.monthly_amount %}
-                                    Monthly amount: ₹{{ "{:,.2f}".format(loan.monthly_amount) }}
-                                {% endif %}
-                            </div>
+                            <label for="loan_id" class="form-label">Loan</label>
+                            <select class="form-select" id="loan_id" name="loan_id" required>
+                                <option value="">Select Loan</option>
+                                {% for loan in loans %}
+                                <option value="{{ loan.id }}">
+                                    {{ loan.customer.name }} - ₹{{ "%.2f"|format(loan.total_amount) }} (Due: {{ loan.due_date.strftime('%Y-%m-%d') }})
+                                </option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="payment_date" class="form-label">Payment Date *</label>
-                            <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+                            <label for="amount" class="form-label">Amount (₹)</label>
+                            <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Optional payment notes"></textarea>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-check-circle"></i> Record Payment
-                        </button>
-                        <a href="{{ url_for('loans') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back to Loans
-                        </a>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.payments') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Payment</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
-
-{% block scripts %}
-<script>
-// Set today's date as default
-document.getElementById('payment_date').value = new Date().toISOString().split('T')[0];
-</script>
-{% endblock %}
 {% endblock %}

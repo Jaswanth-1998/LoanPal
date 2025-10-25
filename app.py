@@ -1,43 +1,29 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from flask_login import LoginManager
+from config import Config
+from dotenv import load_dotenv
 import os
-from werkzeug.middleware.proxy_fix import ProxyFix
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+db = SQLAlchemy()
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login'
+login_manager.login_message_category = 'info'
 
-class Base(DeclarativeBase):
-    pass
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
 
-# Initialize Flask app
-app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "loan-management-secret-key")
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
+    db.init_app(app)
+    login_manager.init_app(app)
 
-# Database configuration - using Replit Auth integration approach
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    'pool_pre_ping': True,
-    "pool_recycle": 300,
-}
+    from auth import auth as auth_blueprint
+    app.register_blueprint(auth_blueprint)
 
-# File upload configuration
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['ALLOWED_EXTENSIONS'] = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+    from routes import main as main_blueprint
+    app.register_blueprint(main_blueprint)
 
-# CSRF Protection
-from flask_wtf.csrf import CSRFProtect
-csrf = CSRFProtect(app)
-
-# Initialize SQLAlchemy with custom base class
-db = SQLAlchemy(app, model_class=Base)
-
-# Create tables
-with app.app_context():
-    import models  # noqa: F401
-    db.create_all()
-    logging.info("Database tables created")
+    return app

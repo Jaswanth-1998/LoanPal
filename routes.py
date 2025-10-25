@@ -1,462 +1,345 @@
-import os
-from datetime import datetime, date, timedelta
-from decimal import Decimal
-from flask import render_template, request, flash, redirect, url_for, session, current_app, jsonify
-from flask_login import current_user, login_required
-from werkzeug.utils import secure_filename
-from sqlalchemy import and_, or_
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_required, current_user
+from sqlalchemy import text, func, desc
+from app import db
+from models import Customer, Loan, Payment, Expenditure, Master
+from models import User
+from datetime import datetime
+from sqlalchemy import or_
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.exc import IntegrityError
+from flask import flash, redirect, url_for
 
-from app import app, db
-from replit_auth import make_replit_blueprint, require_login
-from models import (
-    User, Area, Line, InterestRate, Customer, Loan, Payment, 
-    Expenditure, LoanPeriod
-)
+main = Blueprint('main', __name__)
 
-# Register the Replit Auth blueprint
-app.register_blueprint(make_replit_blueprint(), url_prefix="/auth")
-
-# Make session permanent
-@app.before_request
-def make_session_permanent():
-    session.permanent = True
-
-# Utility functions
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
-
-def calculate_loan_details(loan_amount, period, duration_days, interest_rate):
-    """Calculate loan interest and payment amounts"""
-    loan_amount = Decimal(str(loan_amount))
-    interest_rate = Decimal(str(interest_rate))
-    duration_days = int(duration_days)
-    
-    # Calculate total interest based on period
-    if period == LoanPeriod.DAILY:
-        # Daily interest calculation
-        total_interest = (loan_amount * interest_rate * Decimal(str(duration_days))) / Decimal('100')
-        total_amount = loan_amount + total_interest
-        daily_amount = total_amount / Decimal(str(duration_days))
-        return {
-            'total_interest': total_interest,
-            'total_amount': total_amount,
-            'daily_amount': daily_amount,
-            'weekly_amount': None,
-            'monthly_amount': None
-        }
-    elif period == LoanPeriod.WEEKLY:
-        # Weekly interest calculation
-        weeks = Decimal(str(duration_days)) / Decimal('7')
-        total_interest = (loan_amount * interest_rate * weeks) / Decimal('100')
-        total_amount = loan_amount + total_interest
-        weekly_amount = total_amount / weeks
-        return {
-            'total_interest': total_interest,
-            'total_amount': total_amount,
-            'daily_amount': None,
-            'weekly_amount': weekly_amount,
-            'monthly_amount': None
-        }
-    elif period == LoanPeriod.MONTHLY:
-        # Monthly interest calculation
-        months = Decimal(str(duration_days)) / Decimal('30')
-        total_interest = (loan_amount * interest_rate * months) / Decimal('100')
-        total_amount = loan_amount + total_interest
-        monthly_amount = total_amount / months
-        return {
-            'total_interest': total_interest,
-            'total_amount': total_amount,
-            'daily_amount': None,
-            'weekly_amount': None,
-            'monthly_amount': monthly_amount
-        }
-
-# Routes
-@app.route('/')
+@main.route('/')
 def index():
-    """Landing page - show login button for anonymous users, dashboard for authenticated users"""
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    return redirect(url_for('auth.login'))
 
-@app.route('/dashboard')
-@require_login
+## Profile view/edit
+@main.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', user=current_user)
+
+@main.route('/profile/edit', methods=['GET','POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        # validate uniqueness of username/email for other users
+        username = request.form.get('username')
+        email = request.form.get('email')
+        pwd = request.form.get('password')
+
+        # check if username or email taken by other user
+        u = User.query.filter(User.id != current_user.id, User.username == username).first()
+        if u:
+            flash('Username already taken', 'danger')
+            return redirect(url_for('main.edit_profile'))
+
+        e = User.query.filter(User.id != current_user.id, User.email == email).first()
+        if e:
+            flash('Email already in use', 'danger')
+            return redirect(url_for('main.edit_profile'))
+
+        current_user.username = username
+        current_user.email = email
+        if pwd:
+            current_user.password_hash = generate_password_hash(pwd, method='pbkdf2:sha256')
+        db.session.commit()
+        flash('Profile updated','success')
+        return redirect(url_for('main.profile'))
+
+    return render_template('edit_profile.html')
+
+@main.route('/profile/change_password', methods=['POST'])
+@login_required
+def change_password():
+    current_pwd = request.form.get('current_password', '')
+    new_pwd = request.form.get('new_password', '')
+    confirm_pwd = request.form.get('confirm_password', '')
+
+    if not current_pwd or not new_pwd or not confirm_pwd:
+        flash('Please fill all password fields', 'danger')
+        return redirect(url_for('main.profile'))
+
+    if new_pwd != confirm_pwd:
+        flash('New password and confirmation do not match', 'danger')
+        return redirect(url_for('main.profile'))
+
+    if not check_password_hash(current_user.password_hash, current_pwd):
+        flash('Current password is incorrect', 'danger')
+        return redirect(url_for('main.profile'))
+
+    current_user.password_hash = generate_password_hash(new_pwd, method='pbkdf2:sha256')
+    db.session.commit()
+    flash('Password updated successfully', 'success')
+    return redirect(url_for('main.profile'))
+
+@main.route('/dashboard')
+@login_required
 def dashboard():
-    """Main dashboard for authenticated users"""
-    # Get some basic statistics
-    total_customers = Customer.query.filter_by(is_active=True).count()
-    active_loans = Loan.query.filter_by(is_active=True, is_paid=False).count()
-    total_loan_amount = db.session.query(db.func.sum(Loan.loan_amount)).filter(
-        Loan.is_active == True, Loan.is_paid == False
-    ).scalar() or 0
-    
-    # Recent loans
-    recent_loans = Loan.query.filter_by(is_active=True).order_by(
-        Loan.created_at.desc()
-    ).limit(5).all()
-    
-    return render_template('dashboard.html', 
+    uid = current_user.id
+    total_customers = db.session.query(Customer).filter_by(user_id=uid).count()
+    total_loans = db.session.query(Loan).filter_by(user_id=uid, is_active=True).count()
+
+    total_payments_result = db.session.query(func.sum(Payment.amount)).filter(Payment.user_id == uid).scalar()
+    total_payments = total_payments_result or 0.0
+
+    total_expenditures_result = db.session.query(func.sum(Expenditure.amount)).filter(Expenditure.user_id == uid).scalar()
+    total_expenditures = total_expenditures_result or 0.0
+
+    return render_template('dashboard.html',
                          total_customers=total_customers,
-                         active_loans=active_loans,
-                         total_loan_amount=total_loan_amount,
-                         recent_loans=recent_loans)
+                         total_loans=total_loans,
+                         total_payments=total_payments,
+                         total_expenditures=total_expenditures)
 
-# Master Forms Routes
-@app.route('/master/areas')
-@require_login
-def areas():
-    """Area management page"""
-    areas_list = Area.query.filter_by(is_active=True).all()
-    return render_template('master/areas.html', areas=areas_list)
-
-@app.route('/master/areas/add', methods=['GET', 'POST'])
-@require_login
-def add_area():
-    """Add new area"""
-    if request.method == 'POST':
-        name = request.form.get('name')
-        description = request.form.get('description')
-        
-        if not name:
-            flash('Area name is required', 'error')
-            return render_template('master/add_area.html')
-        
-        # Check for duplicate
-        existing = Area.query.filter_by(name=name, is_active=True).first()
-        if existing:
-            flash('Area name already exists', 'error')
-            return render_template('master/add_area.html')
-        
-        area = Area(
-            name=name,
-            description=description,
-            created_by=current_user.id
-        )
-        db.session.add(area)
-        db.session.commit()
-        
-        flash('Area added successfully', 'success')
-        return redirect(url_for('areas'))
-    
-    return render_template('master/add_area.html')
-
-@app.route('/master/lines')
-@require_login
-def lines():
-    """Line management page"""
-    lines_list = Line.query.filter_by(is_active=True).all()
-    return render_template('master/lines.html', lines=lines_list)
-
-@app.route('/master/lines/add', methods=['GET', 'POST'])
-@require_login
-def add_line():
-    """Add new line"""
-    if request.method == 'POST':
-        name = request.form.get('name')
-        area_id = request.form.get('area_id')
-        description = request.form.get('description')
-        
-        if not name or not area_id:
-            flash('Line name and area are required', 'error')
-            return redirect(url_for('add_line'))
-        
-        line = Line(
-            name=name,
-            area_id=area_id,
-            description=description,
-            created_by=current_user.id
-        )
-        db.session.add(line)
-        db.session.commit()
-        
-        flash('Line added successfully', 'success')
-        return redirect(url_for('lines'))
-    
-    areas_list = Area.query.filter_by(is_active=True).all()
-    return render_template('master/add_line.html', areas=areas_list)
-
-@app.route('/master/interest-rates')
-@require_login
-def interest_rates():
-    """Interest rate management page"""
-    rates = InterestRate.query.filter_by(is_active=True).all()
-    return render_template('master/interest_rates.html', rates=rates)
-
-@app.route('/master/interest-rates/add', methods=['GET', 'POST'])
-@require_login
-def add_interest_rate():
-    """Add new interest rate"""
-    if request.method == 'POST':
-        period = request.form.get('period')
-        rate_per_hundred = request.form.get('rate_per_hundred')
-        
-        if not period or not rate_per_hundred:
-            flash('Period and interest rate are required', 'error')
-            return render_template('master/add_interest_rate.html')
-        
-        # Check for existing rate for this period
-        existing = InterestRate.query.filter_by(
-            period=LoanPeriod(period), is_active=True
-        ).first()
-        if existing:
-            flash('Interest rate for this period already exists', 'error')
-            return render_template('master/add_interest_rate.html')
-        
-        rate = InterestRate(
-            period=LoanPeriod(period),
-            rate_per_hundred=Decimal(rate_per_hundred),
-            created_by=current_user.id
-        )
-        db.session.add(rate)
-        db.session.commit()
-        
-        flash('Interest rate added successfully', 'success')
-        return redirect(url_for('interest_rates'))
-    
-    return render_template('master/add_interest_rate.html')
-
-# Customer Management Routes
-@app.route('/customers')
-@require_login
+# Customers
+@main.route('/customers')
+@login_required
 def customers():
-    """Customer list page"""
-    customers_list = Customer.query.filter_by(is_active=True).all()
-    return render_template('customers/list.html', customers=customers_list)
+    customer_list = Customer.query.filter_by(user_id=current_user.id).all()
+    return render_template('customers/list.html', customers=customer_list)
 
-@app.route('/customers/add', methods=['GET', 'POST'])
-@require_login
+@main.route('/customers/add', methods=['GET', 'POST'])
+@login_required
 def add_customer():
-    """Add new customer"""
+    # When the form is submitted
     if request.method == 'POST':
         name = request.form.get('name')
         phone = request.form.get('phone')
         address = request.form.get('address')
-        line_id = request.form.get('line_id')
-        
-        if not name or not line_id:
-            flash('Customer name and line are required', 'error')
-            return redirect(url_for('add_customer'))
-        
-        # Handle file upload
-        document_path = None
-        if 'document' in request.files:
-            file = request.files['document']
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                # Create uploads directory if it doesn't exist
-                upload_dir = os.path.join(current_app.root_path, 'uploads')
-                os.makedirs(upload_dir, exist_ok=True)
-                # Save file with timestamp to avoid conflicts
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
-                filename = timestamp + filename
-                file_path = os.path.join(upload_dir, filename)
-                file.save(file_path)
-                document_path = filename
-        
-        customer = Customer(
+        area = request.form.get('area')
+        line = request.form.get('line')
+
+        new_customer = Customer(
+            user_id=current_user.id,
             name=name,
             phone=phone,
             address=address,
-            line_id=line_id,
-            document_path=document_path,
-            created_by=current_user.id
+            area=area,
+            line=line
         )
-        db.session.add(customer)
-        db.session.commit()
-        
-        flash('Customer added successfully', 'success')
-        return redirect(url_for('customers'))
-    
-    lines_list = Line.query.filter_by(is_active=True).all()
-    return render_template('customers/add.html', lines=lines_list)
 
-# Loan Management Routes
-@app.route('/loans')
-@require_login
+        try:
+            db.session.add(new_customer)
+            db.session.commit()
+            flash("✅ Customer added successfully!", "success")
+            return redirect(url_for('main.customers'))
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'customer_phone_key' in str(e.orig):
+                flash("⚠️ This phone number already exists. Please use a different one.", "danger")
+            else:
+                flash("❌ An error occurred while saving. Please try again.", "danger")
+            return redirect(url_for('main.add_customer'))
+
+    # When user just visits the Add Customer page
+    areas = Master.query.filter(Master.type == 'area').filter(or_(Master.user_id == None, Master.user_id == current_user.id)).all()
+    lines = Master.query.filter(Master.type == 'line').filter(or_(Master.user_id == None, Master.user_id == current_user.id)).all()
+
+    return render_template('customers/add.html', areas=areas, lines=lines)
+
+# Loans
+@main.route('/loans')
+@login_required
 def loans():
-    """Loan list page"""
-    loans_list = Loan.query.filter_by(is_active=True).order_by(Loan.created_at.desc()).all()
-    return render_template('loans/list.html', loans=loans_list)
+    loan_list = Loan.query.filter_by(user_id=current_user.id).all()
+    return render_template('loans/list.html', loans=loan_list)
 
-@app.route('/loans/add', methods=['GET', 'POST'])
-@require_login
+@main.route('/loans/add', methods=['GET', 'POST'])
+@login_required
 def add_loan():
-    """Add new loan"""
     if request.method == 'POST':
-        customer_id = request.form.get('customer_id')
-        loan_amount = request.form.get('loan_amount')
-        period = request.form.get('period')
-        duration_days = request.form.get('duration_days')
-        interest_rate = request.form.get('interest_rate')
-        start_date_str = request.form.get('start_date')
-        
-        if not all([customer_id, loan_amount, period, duration_days, interest_rate, start_date_str]):
-            flash('All fields are required', 'error')
-            return redirect(url_for('add_loan'))
-        
-        # Parse dates
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = start_date + timedelta(days=int(duration_days))
-        
-        # Calculate loan details
-        loan_details = calculate_loan_details(
-            loan_amount, LoanPeriod(period), duration_days, interest_rate
+        customer_id = int(request.form.get('customer_id'))
+        principal_amount = float(request.form.get('principal_amount'))
+        interest_rate = float(request.form.get('interest_rate'))
+        due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d')
+
+        # ensure customer belongs to current user
+        customer = Customer.query.filter_by(id=customer_id, user_id=current_user.id).first()
+        if not customer:
+            flash('Customer not found or permission denied', 'danger')
+            return redirect(url_for('main.add_loan'))
+
+        total_amount = principal_amount + (principal_amount * interest_rate / 100)
+
+        new_loan = Loan(
+            user_id=current_user.id,
+            customer_id=customer.id,
+            principal_amount=principal_amount,
+            interest_rate=interest_rate,
+            total_amount=total_amount,
+            due_date=due_date
         )
-        
-        loan = Loan(
-            customer_id=customer_id,
-            loan_amount=Decimal(loan_amount),
-            period=LoanPeriod(period),
-            duration_days=int(duration_days),
-            interest_rate=Decimal(interest_rate),
-            total_interest=loan_details['total_interest'],
-            total_amount=loan_details['total_amount'],
-            daily_amount=loan_details['daily_amount'],
-            weekly_amount=loan_details['weekly_amount'],
-            monthly_amount=loan_details['monthly_amount'],
-            start_date=start_date,
-            end_date=end_date,
-            created_by=current_user.id
-        )
-        
-        db.session.add(loan)
+        db.session.add(new_loan)
         db.session.commit()
-        
+
         flash('Loan added successfully', 'success')
-        return redirect(url_for('loans'))
-    
-    customers_list = Customer.query.filter_by(is_active=True).all()
-    interest_rates = InterestRate.query.filter_by(is_active=True).all()
-    return render_template('loans/add.html', customers=customers_list, interest_rates=interest_rates)
+        return redirect(url_for('main.loans'))
 
-# Payment Routes
-@app.route('/payments')
-@require_login
+    customers = Customer.query.filter_by(user_id=current_user.id).all()
+    interest_rates = Master.query.filter(Master.type=='interest_rate').filter(or_(Master.user_id==None, Master.user_id==current_user.id)).all()
+    return render_template('loans/add.html', customers=customers, interest_rates=interest_rates)
+
+# Payments
+@main.route('/payments')
+@login_required
 def payments():
-    """Payment history page"""
-    payments_list = Payment.query.order_by(Payment.created_at.desc()).all()
-    return render_template('payments/list.html', payments=payments_list)
+    payment_list = Payment.query.filter_by(user_id=current_user.id).all()
+    return render_template('payments/list.html', payments=payment_list)
 
-@app.route('/payments/add/<int:loan_id>', methods=['GET', 'POST'])
-@require_login
-def add_payment(loan_id):
-    """Add payment for a specific loan"""
-    loan = Loan.query.get_or_404(loan_id)
-    
+@main.route('/payments/add', methods=['GET', 'POST'])
+@login_required
+def add_payment():
     if request.method == 'POST':
-        amount_paid = request.form.get('amount_paid')
-        payment_date_str = request.form.get('payment_date')
-        notes = request.form.get('notes')
-        
-        if not amount_paid or not payment_date_str:
-            flash('Amount and payment date are required', 'error')
-            return redirect(url_for('add_payment', loan_id=loan_id))
-        
-        payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d').date()
-        
-        payment = Payment(
-            loan_id=loan_id,
-            amount_paid=Decimal(amount_paid),
-            payment_date=payment_date,
-            notes=notes,
-            created_by=current_user.id
-        )
-        
-        db.session.add(payment)
-        
-        # Check if loan is fully paid
-        total_payments = db.session.query(db.func.sum(Payment.amount_paid)).filter(
-            Payment.loan_id == loan_id
-        ).scalar() or Decimal('0')
-        
-        if total_payments + Decimal(amount_paid) >= loan.total_amount:
-            loan.is_paid = True
-        
+        loan_id = int(request.form.get('loan_id'))
+        amount = float(request.form.get('amount'))
+
+        loan = Loan.query.filter_by(id=loan_id, user_id=current_user.id).first()
+        if not loan:
+            flash('Loan not found or permission denied', 'danger')
+            return redirect(url_for('main.payments'))
+
+        new_payment = Payment(user_id=current_user.id, loan_id=loan.id, amount=amount)
+        db.session.add(new_payment)
         db.session.commit()
-        flash('Payment recorded successfully', 'success')
-        return redirect(url_for('loans'))
-    
-    return render_template('payments/add.html', loan=loan)
 
-# Expenditure Routes
-@app.route('/expenditures')
-@require_login
+        flash('Payment added successfully', 'success')
+        return redirect(url_for('main.payments'))
+
+    loans = Loan.query.filter_by(user_id=current_user.id, is_active=True).all()
+    return render_template('payments/add.html', loans=loans)
+
+# Expenditures
+@main.route('/expenditures')
+@login_required
 def expenditures():
-    """Expenditure list page"""
-    expenditures_list = Expenditure.query.order_by(Expenditure.created_at.desc()).all()
-    return render_template('expenditures/list.html', expenditures=expenditures_list)
+    expenditure_list = Expenditure.query.filter_by(user_id=current_user.id).all()
+    return render_template('expenditures/list.html', expenditures=expenditure_list)
 
-@app.route('/expenditures/add', methods=['GET', 'POST'])
-@require_login
+@main.route('/expenditures/add', methods=['GET', 'POST'])
+@login_required
 def add_expenditure():
-    """Add new expenditure"""
     if request.method == 'POST':
         description = request.form.get('description')
-        amount = request.form.get('amount')
-        category = request.form.get('category')
-        expenditure_date_str = request.form.get('expenditure_date')
-        
-        if not description or not amount or not expenditure_date_str:
-            flash('Description, amount, and date are required', 'error')
-            return render_template('expenditures/add.html')
-        
-        expenditure_date = datetime.strptime(expenditure_date_str, '%Y-%m-%d').date()
-        
-        expenditure = Expenditure(
-            description=description,
-            amount=Decimal(amount),
-            category=category,
-            expenditure_date=expenditure_date,
-            created_by=current_user.id
-        )
-        
-        db.session.add(expenditure)
+        amount = float(request.form.get('amount'))
+
+        new_expenditure = Expenditure(user_id=current_user.id, description=description, amount=amount)
+        db.session.add(new_expenditure)
         db.session.commit()
-        
+
         flash('Expenditure added successfully', 'success')
-        return redirect(url_for('expenditures'))
-    
+        return redirect(url_for('main.expenditures'))
+
     return render_template('expenditures/add.html')
 
-# API endpoints for dynamic data
-@app.route('/api/interest-rate/<period>')
-@require_login
-def get_interest_rate(period):
-    """Get interest rate for a specific period"""
-    try:
-        period_enum = LoanPeriod(period)
-        rate = InterestRate.query.filter_by(period=period_enum, is_active=True).first()
-        if rate:
-            return jsonify({'rate': float(rate.rate_per_hundred)})
-        return jsonify({'rate': 10.0})  # Default rate
-    except ValueError:
-        return jsonify({'rate': 10.0})
+# Master
+@main.route('/master')
+@login_required
+def master():
+    # show global masters + user's masters
+    master_list = Master.query.filter(or_(Master.user_id==None, Master.user_id==current_user.id)).all()
+    return render_template('master/list.html', master_list=master_list)
 
-@app.route('/api/calculate-loan', methods=['POST'])
-@require_login
-def calculate_loan():
-    """Calculate loan details via API"""
-    data = request.get_json()
-    loan_amount = data.get('loan_amount')
-    period = data.get('period')
-    duration_days = data.get('duration_days')
-    interest_rate = data.get('interest_rate')
-    
-    if not all([loan_amount, period, duration_days, interest_rate]):
-        return jsonify({'error': 'All fields required'}), 400
-    
-    try:
-        details = calculate_loan_details(
-            loan_amount, LoanPeriod(period), duration_days, interest_rate
-        )
-        # Convert Decimal to float for JSON serialization
-        return jsonify({
-            'total_interest': float(details['total_interest']),
-            'total_amount': float(details['total_amount']),
-            'daily_amount': float(details['daily_amount']) if details['daily_amount'] else None,
-            'weekly_amount': float(details['weekly_amount']) if details['weekly_amount'] else None,
-            'monthly_amount': float(details['monthly_amount']) if details['monthly_amount'] else None,
+@main.route('/master/add', methods=['GET', 'POST'])
+@login_required
+def add_master():
+    if request.method == 'POST':
+        mtype = request.form.get('type')
+        value = request.form.get('value')
+
+        new_master = Master(user_id=current_user.id, type=mtype, value=value)
+        db.session.add(new_master)
+        db.session.commit()
+
+        flash('Master data added successfully', 'success')
+        return redirect(url_for('main.master'))
+
+    return render_template('master/add.html')
+
+#Reports
+@main.route('/reports/users')
+@login_required
+def user_report():
+    """
+    Per-customer report for the logged-in user.
+    Each row = one customer with customer-specific loan/payment aggregates.
+    """
+    customers = Customer.query.filter_by(user_id=current_user.id).order_by(Customer.name).all()
+
+    summaries = []
+    for c in customers:
+        # loans count and sum of principals for this customer
+        loan_count = db.session.query(func.count(Loan.id)) \
+            .filter(Loan.customer_id == c.id).scalar() or 0
+
+        total_principal = db.session.query(func.coalesce(func.sum(Loan.principal_amount), 0.0)) \
+            .filter(Loan.customer_id == c.id).scalar() or 0.0
+
+        # payments: join Payment -> Loan and filter by loan.customer_id
+        total_paid = db.session.query(func.coalesce(func.sum(Payment.amount), 0.0)) \
+            .join(Loan, Payment.loan_id == Loan.id) \
+            .filter(Loan.customer_id == c.id).scalar() or 0.0
+
+        summaries.append({
+            'username': current_user.username,
+            'customer_name': c.name,
+            'loan_count': int(loan_count),
+            'total_principal': float(total_principal),
+            'total_paid': float(total_paid)
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+
+    return render_template('reports/user_report.html', summaries=summaries, is_admin=False)
+
+
+@main.route('/reports/lines')
+@login_required
+def line_report():
+    """
+    Group by Customer.line for current_user and show loan/payment aggregates.
+    """
+    rows = (
+        db.session.query(
+            Customer.line.label('line'),
+            func.count(Loan.id).label('loan_count'),
+            func.coalesce(func.sum(Loan.principal_amount), 0).label('total_principal'),
+            func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
+        )
+        .join(Loan, Loan.customer_id == Customer.id)
+        .outerjoin(Payment, Payment.loan_id == Loan.id)
+        .filter(Customer.user_id == current_user.id)   # ensure only user's data
+        .group_by(Customer.line)
+        .order_by(Customer.line)
+        .all()
+    )
+    return render_template('reports/line_report.html', rows=rows)
+
+
+@main.route('/reports/payments')
+@login_required
+def payment_report():
+    """
+    Recent payments for current_user with loan and customer info.
+    Optional query param: ?limit=100
+    """
+    limit = request.args.get('limit', 100, type=int)
+
+    payments = (
+        db.session.query(
+            Payment.id,
+            Payment.amount,
+            Payment.payment_date,
+            Loan.id.label('loan_id'),
+            Customer.name.label('customer_name'),
+            Customer.phone.label('customer_phone')
+        )
+        .join(Loan, Payment.loan_id == Loan.id)
+        .join(Customer, Loan.customer_id == Customer.id)
+        .filter(Payment.user_id == current_user.id)   # user's payments only
+        .order_by(desc(Payment.payment_date))
+        .limit(limit)
+        .all()
+    )
+    return render_template('reports/payment_report.html', payments=payments)
