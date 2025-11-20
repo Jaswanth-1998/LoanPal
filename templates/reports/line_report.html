@@ -7,7 +7,7 @@
     <h3 class="mb-0">Line-wise Report</h3>
 
     <!-- use referrer if present, otherwise dashboard -->
-    <a href="{{ request.referrer or url_for('main.dashboard') }}"
+    <a href="{{url_for('main.dashboard') }}"
        class="btn btn-outline-secondary btn-sm"
        title="Go back">
       <i class="fas fa-arrow-left me-1"></i> Back

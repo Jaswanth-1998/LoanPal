@@ -1,94 +1,145 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="row">
-    <div class="col-md-3 mb-4">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>{{ total_customers }}</h4>
-                        <p>Total Customers</p>
-                        <a class="nav-link" href="{{ url_for('main.customers') }}"></a>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-users fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-4">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>{{ total_loans }}</h4>
-                        <p>Active Loans</p>
-                        <a class="nav-link" href="{{ url_for('main.loans') }}"></a>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-file-invoice-dollar fa-2x"></i>
+
+<div class="container mt-4">
+
+    <!-- Stats Cards -->
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <a href="{{ url_for('main.customers') }}" class="text-decoration-none">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ total_customers }}</h4>
+                            <p>Total Customers</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
+            </a>
         </div>
-    </div>
-    <div class="col-md-3 mb-4">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>₹{{ "%.2f"|format(total_payments) }}</h4>
-                        <p>Total Payments</p>
-                        <a class="nav-link" href="{{ url_for('main.payments') }}"></a>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-money-bill-wave fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-4">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>₹{{ "%.2f"|format(total_expenditures) }}</h4>
-                        <p>Total Expenditures</p>
-                        <a class="nav-link" href="{{ url_for('main.expenditures') }}"></a>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-receipt fa-2x"></i>
+
+        <div class="col-md-3 mb-4">
+            <a href="{{ url_for('main.loans') }}" class="text-decoration-none">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ total_loans }}</h4>
+                            <p>Active Loans</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-invoice-dollar fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
+            </a>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <a href="{{ url_for('main.payments') }}" class="text-decoration-none">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>₹{{ "%.2f"|format(total_payments) }}</h4>
+                            <p>Total Payments</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-money-bill-wave fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </a>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <a href="{{ url_for('main.expenditures') }}" class="text-decoration-none">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>₹{{ "%.2f"|format(total_expenditures) }}</h4>
+                            <p>Total Expenditures</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-receipt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </a>
         </div>
     </div>
-</div>
-<div class="row mt-4">
-  <div class="col-md-12">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-        <h5 class="mb-0">Reports</h5>
-        <div class="d-flex flex-wrap justify-content-end gap-2 mt-2 mt-md-0">
-          <a href="{{ url_for('main.user_report') }}" class="btn btn-outline-primary">
-            <i class="fas fa-users"></i> User-wise Report
-          </a>
-          <a href="{{ url_for('main.line_report') }}" class="btn btn-outline-success">
-            <i class="fas fa-stream"></i> Line-wise Report
-          </a>
-          <a href="{{ url_for('main.payment_report') }}" class="btn btn-outline-info">
-            <i class="fas fa-money-bill-wave"></i> Payment Report
-          </a>
+
+    <!-- Reports Section IN CONTAINER -->
+    <div class="card shadow-sm mt-5 mb-5">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+            <h5 class="mb-0">Reports</h5>
+            <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                <a href="{{ url_for('main.user_report') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-users"></i> User-wise Report
+                </a>
+                <a href="{{ url_for('main.line_report') }}" class="btn btn-outline-success">
+                    <i class="fas fa-stream"></i> Line-wise Report
+                </a>
+                <a href="{{ url_for('main.payment_report') }}" class="btn btn-outline-info">
+                    <i class="fas fa-money-bill-wave"></i> Payment Report
+                </a>
+            </div>
         </div>
-      </div>
-      <div class="card-body text-muted">
-        <p class="mb-0">
-          View and analyze reports specific to your account — including user, line, and payment details.
+        <div class="card-body text-muted">
+            <p class="mb-0">
+                View and analyze reports specific to your account — including user, line, and payment details.
+            </p>
+        </div>
+    </div>
+
+</div> 
+<!-- ✅ CONTAINER CLOSED -->
+
+<!-- SPACE BEFORE FOOTER -->
+<div style="height: 600px;"></div>
+
+<!-- FOOTER -->
+<footer class="p-4 text-white" style="background:#1d0429;">
+  <div class="container">
+    <div class="row">
+
+      <div class="col-md-6">
+        <h5>Contents Owned and Updated By</h5>
+        <p class="small">
+          Your Loan & Financial Tracking System<br>
+          Chennai, Tamil Nadu - 600 009<br>
+          Email : support@example.com
         </p>
       </div>
+	  
+      <div class="col-md-6">
+        <h5>Designed & Developed By</h5>
+        <p class="small">
+          Development Team / FinPal <br>
+          Chennai - 600 090<br>
+          Email : devteam@example.com
+        </p>
+      </div>
+
+    </div>
+
+    <hr class="border-secondary">
+
+    <div class="text-center small">
+      © {{ current_year }}. All Rights Reserved.  
+      | <a href="#" class="text-warning">Disclaimer</a> 
+      | <a href="#" class="text-warning">Website Policies</a>
     </div>
   </div>
-</div>
+</footer>
+
 {% endblock %}

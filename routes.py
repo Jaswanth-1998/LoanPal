@@ -1,11 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import text, func, desc
 from app import db
 from models import Customer, Loan, Payment, Expenditure, Master
 from models import User
-from datetime import datetime
-from sqlalchemy import or_
+from datetime import datetime, date, timedelta
+from sqlalchemy import or_, cast
+from sqlalchemy.types import String
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 from flask import flash, redirect, url_for
@@ -16,7 +17,7 @@ main = Blueprint('main', __name__)
 def index():
     return redirect(url_for('auth.login'))
 
-## Profile view/edit
+# Profile view/edit
 @main.route('/profile')
 @login_required
 def profile():
@@ -29,7 +30,6 @@ def edit_profile():
         # validate uniqueness of username/email for other users
         username = request.form.get('username')
         email = request.form.get('email')
-        pwd = request.form.get('password')
 
         # check if username or email taken by other user
         u = User.query.filter(User.id != current_user.id, User.username == username).first()
@@ -44,8 +44,7 @@ def edit_profile():
 
         current_user.username = username
         current_user.email = email
-        if pwd:
-            current_user.password_hash = generate_password_hash(pwd, method='pbkdf2:sha256')
+
         db.session.commit()
         flash('Profile updated','success')
         return redirect(url_for('main.profile'))
@@ -82,7 +81,6 @@ def dashboard():
     uid = current_user.id
     total_customers = db.session.query(Customer).filter_by(user_id=uid).count()
     total_loans = db.session.query(Loan).filter_by(user_id=uid, is_active=True).count()
-
     total_payments_result = db.session.query(func.sum(Payment.amount)).filter(Payment.user_id == uid).scalar()
     total_payments = total_payments_result or 0.0
 
@@ -93,14 +91,40 @@ def dashboard():
                          total_customers=total_customers,
                          total_loans=total_loans,
                          total_payments=total_payments,
-                         total_expenditures=total_expenditures)
+                         total_expenditures=total_expenditures,
+                          current_year=datetime.now().year 
+                          )
 
 # Customers
 @main.route('/customers')
 @login_required
 def customers():
-    customer_list = Customer.query.filter_by(user_id=current_user.id).all()
-    return render_template('customers/list.html', customers=customer_list)
+    # Pagination & search support
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    search_query = request.args.get('q', '').strip()
+
+    # Base query: customers that belong to current_user
+    query = Customer.query.filter(Customer.user_id == current_user.id).filter(
+        or_(Customer.user_id==None, Customer.user_id==current_user.id))
+        
+     # Apply search (if present)
+    if search_query:
+        query = query.filter(
+            or_(
+                Customer.name.ilike(f"%{search_query}%"),
+                Customer.phone.ilike(f"%{search_query}%"),
+                Customer.area.ilike(f"%{search_query}%"),
+                Customer.line.ilike(f"%{search_query}%")
+            )
+        )
+
+    # paginate and order by name
+    pagination = query.order_by(Customer.id.asc()).paginate(page=page, per_page=per_page, error_out=False)
+    customers_list = pagination.items
+
+    # Render customers/list.html
+    return render_template('customers/list.html', customers=customers_list, pagination=pagination, search_query=search_query)
 
 @main.route('/customers/add', methods=['GET', 'POST'])
 @login_required
@@ -145,8 +169,30 @@ def add_customer():
 @main.route('/loans')
 @login_required
 def loans():
-    loan_list = Loan.query.filter_by(user_id=current_user.id).all()
-    return render_template('loans/list.html', loans=loan_list)
+    page = request.args.get('page', 1, type=int) # ✅ get current page number
+    per_page = 10  # ✅ number of records per page                         
+    search_query = request.args.get('q', '').strip() # ✅ get search keyword
+
+    # Base query: join Loan -> Customer (so we can search by Customer.name)
+    query = Loan.query.join(Customer, Loan.customer_id == Customer.id).filter(
+        or_(Loan.user_id == None, Loan.user_id == current_user.id))    
+    
+    # Apply search filter (customer name or numeric matches on amounts)
+    if search_query:
+        # if you want to search amounts too, keep the cast parts; otherwise remove them
+        query = query.filter(
+            or_(
+                Customer.name.ilike(f"%{search_query}%"),
+                cast(Loan.principal_amount, String).ilike(f"%{search_query}%"),
+                cast(Loan.total_amount, String).ilike(f"%{search_query}%")
+            )
+        )
+    
+    # Apply Pagination and ordering
+    pagination = query.order_by(Loan.id.asc()).paginate(page=page, per_page=per_page, error_out=False )
+    
+    # Render page/ # ✅ matches Jinja variable
+    return render_template('loans/list.html', loans=pagination.items, pagination=pagination, search_query=search_query)
 
 @main.route('/loans/add', methods=['GET', 'POST'])
 @login_required
@@ -183,54 +229,189 @@ def add_loan():
     interest_rates = Master.query.filter(Master.type=='interest_rate').filter(or_(Master.user_id==None, Master.user_id==current_user.id)).all()
     return render_template('loans/add.html', customers=customers, interest_rates=interest_rates)
 
-# Payments
+#PAYMENTS 
 @main.route('/payments')
 @login_required
 def payments():
-    payment_list = Payment.query.filter_by(user_id=current_user.id).all()
-    return render_template('payments/list.html', payments=payment_list)
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    search_query = request.args.get('q', '').strip()
 
-@main.route('/payments/add', methods=['GET', 'POST'])
+    # Query active loans for this user
+    base_q = Loan.query.join(Customer).filter(
+        Loan.user_id == current_user.id,
+        Loan.is_active == True
+    )
+
+    if search_query:
+        base_q = base_q.filter(or_(
+            Customer.name.ilike(f"%{search_query}%"),
+            cast(Loan.principal_amount, String).ilike(f"%{search_query}%"),
+            cast(Loan.total_amount, String).ilike(f"%{search_query}%")
+        ))
+
+    pagination = base_q.order_by(Loan.id.asc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    loans = pagination.items
+
+    # Allowed dates = today + last 3 days
+    today_dt = date.today()
+    allowed_dates = [(today_dt - timedelta(days=i)).isoformat() for i in range(4)]
+    allowed_date_objs = [(today_dt - timedelta(days=i)) for i in range(4)]
+
+    loan_meta = {}
+
+    for loan in loans:
+        # paid dates
+        paid_rows = (
+            db.session.query(func.date(Payment.payment_date))
+            .filter(
+                Payment.loan_id == loan.id,
+                Payment.user_id == current_user.id,
+                func.date(Payment.payment_date).in_(allowed_date_objs)
+            )
+            .distinct()
+            .all()
+        )
+        paid_dates = [p[0].isoformat() for p in paid_rows if p[0] is not None]
+
+        # last payment
+        last_row = (
+            db.session.query(func.date(Payment.payment_date))
+            .filter(
+                Payment.loan_id == loan.id,
+                Payment.user_id == current_user.id
+            )
+            .order_by(Payment.payment_date.desc())
+            .first()
+        )
+        last_date = last_row[0].isoformat() if last_row else None
+
+        cust = loan.customer
+
+        loan_meta[loan.id] = {
+            "paid_dates": paid_dates,
+            "last_payment_date": last_date,
+            "customer_area": cust.area if cust else "",
+            "customer_line": cust.line if cust else "",
+        }
+
+    return render_template(
+        "payments/list.html",
+        loans=loans,
+        pagination=pagination,
+        search_query=search_query,
+        loan_meta=loan_meta,
+        allowed_dates=allowed_dates,
+        today=today_dt.isoformat()
+    )
+    
+#ADD PAYMENT 
+@main.route('/payments/add', methods=['POST'])
 @login_required
 def add_payment():
-    if request.method == 'POST':
-        loan_id = int(request.form.get('loan_id'))
-        amount = float(request.form.get('amount'))
+    loan_id = request.form.get("loan_id")
+    amount_raw = request.form.get("amount")
+    payment_date_raw = request.form.get("payment_date")
 
-        loan = Loan.query.filter_by(id=loan_id, user_id=current_user.id).first()
-        if not loan:
-            flash('Loan not found or permission denied', 'danger')
-            return redirect(url_for('main.payments'))
+    page = request.form.get("page")
+    q = request.form.get("q")
 
-        new_payment = Payment(user_id=current_user.id, loan_id=loan.id, amount=amount)
-        db.session.add(new_payment)
+    # validate loan
+    try:
+        loan_id = int(loan_id)
+    except:
+        flash("Invalid loan", "danger")
+        return redirect(url_for("main.payments", page=page, q=q))
+
+    loan = Loan.query.filter_by(id=loan_id, user_id=current_user.id).first()
+    if not loan:
+        flash("Loan not found", "danger")
+        return redirect(url_for("main.payments", page=page, q=q))
+
+    # validate amount
+    try:
+        amount = float(amount_raw)
+        if amount <= 0:
+            raise ValueError()
+    except:
+        flash("Enter valid amount", "danger")
+        return redirect(url_for("main.payments", page=page, q=q))
+
+    # validate date
+    try:
+        payment_date = datetime.strptime(payment_date_raw, "%Y-%m-%d")
+    except:
+        flash("Invalid payment date", "danger")
+        return redirect(url_for("main.payments", page=page, q=q))
+
+    # check duplicate
+    exist = Payment.query.filter(
+        Payment.loan_id == loan.id,
+        func.date(Payment.payment_date) == payment_date.date()
+    ).first()
+
+    if exist:
+        flash("This date already has a payment", "danger")
+        return redirect(url_for("main.payments", page=page, q=q))
+
+    # insert payment
+    newp = Payment(
+        user_id=current_user.id,
+        loan_id=loan.id,
+        amount=amount,
+        payment_date=payment_date
+    )
+    db.session.add(newp)
+    db.session.commit()
+
+    # auto close loan if complete
+    total_paid = db.session.query(
+        func.coalesce(func.sum(Payment.amount), 0.0)
+    ).filter(Payment.loan_id == loan.id).scalar()
+
+    if total_paid >= loan.total_amount:
+        loan.is_active = False
         db.session.commit()
 
-        flash('Payment added successfully', 'success')
-        return redirect(url_for('main.payments'))
-
-    loans = Loan.query.filter_by(user_id=current_user.id, is_active=True).all()
-    return render_template('payments/add.html', loans=loans)
+    flash("Payment added successfully", "success")
+    return redirect(url_for("main.payments", page=page, q=q))
 
 # Expenditures
 @main.route('/expenditures')
 @login_required
 def expenditures():
-    expenditure_list = Expenditure.query.filter_by(user_id=current_user.id).all()
-    return render_template('expenditures/list.html', expenditures=expenditure_list)
+    page = request.args.get('page', 1, type=int) # ✅ get current page number
+    per_page = 10  # ✅ number of records per page                         
+    search_query = request.args.get('q', '').strip() # ✅ get search keyword 
+
+    # Base query
+    query = Expenditure.query.filter(or_(Expenditure.user_id == None, Expenditure.user_id == current_user.id))
+
+    # Apply search filter (search)
+    if search_query:
+        query = query.filter(Expenditure.description.ilike(f"%{search_query}%"))
+
+    # Apply Pagination and ordering
+    pagination = query.order_by(Expenditure.id.asc()).paginate(page=page, per_page=per_page, error_out=False )
+
+    # Render page/ # ✅ matches Jinja variable
+    return render_template( 'expenditures/list.html',expenditures=pagination.items, pagination=pagination, search_query=search_query)
 
 @main.route('/expenditures/add', methods=['GET', 'POST'])
 @login_required
 def add_expenditure():
     if request.method == 'POST':
         description = request.form.get('description')
-        amount = float(request.form.get('amount'))
+        amount = request.form.get('amount')
 
-        new_expenditure = Expenditure(user_id=current_user.id, description=description, amount=amount)
+        new_expenditure = Expenditure(user_id=current_user.id,description=description,amount=float(amount),)
+        
         db.session.add(new_expenditure)
         db.session.commit()
 
-        flash('Expenditure added successfully', 'success')
+        flash('✅ Expenditure added successfully!', 'success')
         return redirect(url_for('main.expenditures'))
 
     return render_template('expenditures/add.html')
@@ -239,9 +420,22 @@ def add_expenditure():
 @main.route('/master')
 @login_required
 def master():
-    # show global masters + user's masters
-    master_list = Master.query.filter(or_(Master.user_id==None, Master.user_id==current_user.id)).all()
-    return render_template('master/list.html', master_list=master_list)
+    page = request.args.get('page', 1, type=int)  # ✅ get current page number
+    per_page = 10  # ✅ number of records per page
+    search_query = request.args.get('q', '').strip()  # ✅ get search keyword
+
+    # ✅ Base query
+    query = Master.query.filter(or_(Master.user_id == None, Master.user_id == current_user.id))
+
+    # ✅ Apply search filter if query present
+    if search_query:
+        query = query.filter(Master.value.ilike(f'%{search_query}%'))
+
+    # ✅ Apply pagination & Ordering
+    pagination = query.order_by(Master.id.asc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Render page/ # ✅ matches Jinja variable
+    return render_template('master/list.html', master_list=pagination.items, pagination=pagination, search_query=search_query)
 
 @main.route('/master/add', methods=['GET', 'POST'])
 @login_required
@@ -259,7 +453,7 @@ def add_master():
 
     return render_template('master/add.html')
 
-#Reports
+# Reports
 @main.route('/reports/users')
 @login_required
 def user_report():

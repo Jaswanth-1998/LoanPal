@@ -1,41 +1,343 @@
 {% extends "layout.html" %}
-
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-money-bill-wave"></i> Payments</h2>
-    <a href="{{ url_for('main.add_payment') }}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Add Payment
-    </a>
+  <h2><i class="fas fa-money-bill-wave"></i> Loans / Add Payment</h2>
+  <div class="d-flex">
+    <form class="d-flex me-2" method="get" action="{{ url_for('main.payments') }}">
+      <input type="text" name="q" class="form-control" placeholder="Search value..." value="{{ search_query }}">
+      <button type="submit" class="btn btn-outline-secondary ms-2">Search</button>
+    </form>
+  </div>
 </div>
 
 <div class="card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Loan ID</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>Payment Date</th>
-                        <th>Created Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in payments %}
-                    <tr>
-                        <td>{{ payment.id }}</td>
-                        <td>{{ payment.loan_id }}</td>
-                        <td>{{ payment.loan.customer.name }}</td>
-                        <td>₹{{ "%.2f"|format(payment.amount) }}</td>
-                        <td>{{ payment.payment_date.strftime('%Y-%m-%d') }}</td>
-                        <td>{{ payment.created_at.strftime('%Y-%m-%d') }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Sl.No</th>
+            <th>Loan ID</th>
+            <th>Customer</th>
+            <th>Principal (₹)</th>
+            <th>Interest (%)</th>
+            <th>Total (₹)</th>
+            <th>Last Payment</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in loans %}
+          <tr>
+            <td>{{ (pagination.page - 1) * pagination.per_page + loop.index }}</td>
+            <td>{{ loan.id }}</td>
+            <td>{{ loan.customer.name }}</td>
+            <td>₹{{ "%.2f"|format(loan.principal_amount) }}</td>
+            <td>{{ "%.2f"|format(loan.interest_rate) }}</td>
+            <td>₹{{ "%.2f"|format(loan.total_amount) }}</td>
+            <td>
+              {% if loan_meta[loan.id].last_payment_date %}
+                {{ loan_meta[loan.id].last_payment_date }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <button type="button"
+                      class="btn btn-sm btn-success btn-add-payment"
+                      data-loan-id="{{ loan.id }}"
+                      data-principal="{{ '%.2f'|format(loan.principal_amount) }}"
+                      data-interest="{{ '%.2f'|format(loan.interest_rate) }}"
+                      data-total="{{ '%.2f'|format(loan.total_amount) }}"
+                      data-start-date="{{ loan.start_date.strftime('%Y-%m-%d') if loan.start_date else '' }}"
+                      data-due-date="{{ loan.due_date.strftime('%Y-%m-%d') if loan.due_date else '' }}"
+                      data-customer-name="{{ loan.customer.name|e }}"
+                      data-customer-phone="{{ loan.customer.phone|e }}"
+                      data-customer-address="{{ loan.customer.address|e }}"
+                      data-customer-area="{{ loan_meta[loan.id].customer_area|e }}"
+                      data-customer-line="{{ loan_meta[loan.id].customer_line|e }}">
+                <i class="fas fa-plus-circle"></i> Add Payment
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation" class="mt-3">
+      <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.payments', page=pagination.prev_num, q=search_query) }}">Previous</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+            {% if p == pagination.page %}
+              <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="{{ url_for('main.payments', page=p, q=search_query) }}">{{ p }}</a></li>
+            {% endif %}
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.payments', page=pagination.next_num, q=search_query) }}">Next</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Next</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+
+  </div>
 </div>
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <form id="modalPaymentForm" method="POST" action="{{ url_for('main.add_payment') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Payment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="loan_id" id="modal_loan_id" value="">
+          <input type="hidden" name="page" id="modal_page" value="{{ pagination.page }}">
+          <input type="hidden" name="q" id="modal_q" value="{{ search_query }}">
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Customer Name</label>
+              <input id="modal_customer_name" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              <input id="modal_customer_phone" type="text" class="form-control" readonly>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-8">
+              <label class="form-label">Address</label>
+              <input id="modal_customer_address" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Area / Line</label>
+              <input id="modal_customer_area_line" type="text" class="form-control" readonly>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Loan ID</label>
+              <input id="modal_loan_id_display" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Principal (₹)</label>
+              <input id="modal_principal" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Interest (%)</label>
+              <input id="modal_interest" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Start Date</label>
+              <input id="modal_start_date" type="text" class="form-control" readonly>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Due Date</label>
+              <input id="modal_due_date" type="text" class="form-control" readonly>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Payment Date</label>
+              <input name="payment_date" id="modal_payment_date" type="text" class="form-control" required autocomplete="off" />
+              <div class="form-text small">Allowed: today + previous 30 days. Already-paid dates are disabled.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Amount (₹)</label>
+              <input name="amount" id="modal_amount" type="number" step="0.01" class="form-control" required>
+            </div>
+          </div>
+
+          <div id="modal_alert" class="alert d-none" role="alert"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="modal_submit_btn" type="submit" class="btn btn-primary">Save Payment</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // loan_meta from Flask (tojson). Example:
+  // { "1": { "paid_dates": ["2025-11-14","2025-11-09"], ... }, "2": {...} }
+  const loanMeta = {{ loan_meta|tojson }};
+  const today = "{{ today }}"; // 'YYYY-MM-DD' from backend
+
+  const bsModal = new bootstrap.Modal(document.getElementById('addPaymentModal'));
+  let fpInstance = null;
+
+  // CONFIG: how many days back to allow (0 = today only). Set to 30 for last 30 days.
+  const DAYS_BACK = 30;
+
+  // Normalize a single incoming paid-date value into 'YYYY-MM-DD' string (or null)
+  function normalizeDateValue(val) {
+    if (!val && val !== 0) return null;
+    // If it's already "YYYY-MM-DD", return first 10 chars
+    if (typeof val === 'string') {
+      // remove timezone/time if present, then take first 10 chars
+      const s = val.trim();
+      // Some serializers produce "2025-11-14T00:00:00" -> slice to date
+      return s.length >= 10 ? s.slice(0,10) : null;
+    }
+    // If it's a number (timestamp)
+    if (typeof val === 'number') {
+      try { return (new Date(val)).toISOString().slice(0,10); } catch(e) { return null; }
+    }
+    // If it's already a Date object
+    if (val instanceof Date) {
+      return val.toISOString().slice(0,10);
+    }
+    // fallback: try Date parse
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    } catch(e) {}
+    return null;
+  }
+
+  function normalizePaidDatesArray(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr.map(normalizeDateValue).filter(Boolean);
+  }
+
+  // build allowed dates array: today + previous DAYS_BACK days (strings 'YYYY-MM-DD')
+  function buildAllowedDates(todayIso) {
+    const base = todayIso ? new Date(todayIso) : new Date();
+    const arr = [];
+    for (let i = 0; i <= DAYS_BACK; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() - i);
+      arr.push(d.toISOString().slice(0,10));
+    }
+    return arr;
+  }
+
+  // initialize flatpickr on the input with only 'enabled' dates
+  function initFlatpickr(enabledDates, defaultDate) {
+    if (fpInstance) {
+      try { fpInstance.destroy(); } catch(e) {}
+      fpInstance = null;
+    }
+
+    // fallback: if enabledDates empty, keep today enabled (server still blocks duplicates)
+    const finalEnabled = (enabledDates && enabledDates.length) ? enabledDates : [ buildAllowedDates(today)[0] ];
+
+    fpInstance = flatpickr("#modal_payment_date", {
+      dateFormat: "Y-m-d",
+      enable: finalEnabled,
+      defaultDate: defaultDate || finalEnabled[0],
+      allowInput: false,
+      clickOpens: true
+    });
+  }
+
+  // Debug helper — prints loanMeta for developer
+  try {
+    console.info("loanMeta (from server):", loanMeta);
+  } catch(e) {}
+
+  // delegated click handler to open modal and setup datepicker
+  document.body.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-add-payment');
+    if (!btn) return;
+
+    const loanIdStr = String(btn.dataset.loanId || "");
+    // Some tojson outputs numeric keys, some string keys — JSON keys are strings usually,
+    // but just in case we attempt both:
+    const metaRaw = (loanMeta && (loanMeta[loanIdStr] || loanMeta[Number(loanIdStr)])) || {};
+    const paidRaw = metaRaw.paid_dates || [];
+
+    // Normalize paid dates
+    const paidDates = normalizePaidDatesArray(paidRaw);
+    // Build allowed dates (today + back N)
+    const allowedDates = buildAllowedDates(today);
+    // Create enabledDates (allowed minus paid)
+    const paidSet = new Set(paidDates);
+    const enabledDates = allowedDates.filter(d => !paidSet.has(d));
+
+    // defaultDate preference: today if not paid, else first not-paid allowed
+    let defaultDate = allowedDates[0];
+    if (paidSet.has(defaultDate)) {
+      const notPaid = allowedDates.find(d => !paidSet.has(d));
+      if (notPaid) defaultDate = notPaid;
+    }
+
+    // Debug logging to console so you can inspect what's happening
+    console.debug("Preparing modal for loan", loanIdStr);
+    console.debug("paidRaw:", paidRaw);
+    console.debug("paidDates(normalized):", paidDates);
+    console.debug("allowedDates:", allowedDates.slice(0,10), "..."); // first 10 only
+    console.debug("enabledDates:", enabledDates.slice(0,10), "...");
+
+    // populate modal fields
+    document.getElementById('modal_loan_id').value = loanIdStr;
+    document.getElementById('modal_loan_id_display').value = loanIdStr;
+    document.getElementById('modal_principal').value = btn.dataset.principal || '';
+    document.getElementById('modal_interest').value = btn.dataset.interest || '';
+    document.getElementById('modal_start_date').value = btn.dataset.startDate || '';
+    document.getElementById('modal_due_date').value = btn.dataset.dueDate || '';
+    document.getElementById('modal_customer_name').value = btn.dataset.customerName || '';
+    document.getElementById('modal_customer_phone').value = btn.dataset.customerPhone || '';
+    document.getElementById('modal_customer_address').value = btn.dataset.customerAddress || '';
+    document.getElementById('modal_customer_area_line').value =
+      (btn.dataset.customerArea || '') + (btn.dataset.customerLine ? ' / ' + btn.dataset.customerLine : '');
+    document.getElementById('modal_amount').value = '';
+
+    // init flatpickr with allowedDates minus paidDates
+    initFlatpickr(enabledDates, defaultDate);
+
+    bsModal.show();
+  });
+
+  // client-side guard before submit (still server checks duplicates)
+  const modalForm = document.getElementById('modalPaymentForm');
+  if (modalForm) {
+    modalForm.addEventListener('submit', function(ev) {
+      const loanId = String(document.getElementById('modal_loan_id').value || '');
+      const selDate = document.getElementById('modal_payment_date').value;
+      const metaRaw = (loanMeta && (loanMeta[loanId] || loanMeta[Number(loanId)])) || {};
+      const paidDates = normalizePaidDatesArray(metaRaw.paid_dates || []);
+      if (paidDates.includes(selDate)) {
+        ev.preventDefault();
+        alert('Payment already exists for that date. Choose another date.');
+        return false;
+      }
+    });
+  }
+});
+</script>
+
 {% endblock %}

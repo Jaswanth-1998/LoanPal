@@ -6,3 +6,4 @@ class Config:
     if not SQLALCHEMY_DATABASE_URI:
         raise RuntimeError("DATABASE_URL environment variable is required.")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
